@@ -223,9 +223,6 @@ ScheduleNode::ScheduleNode()
   conflict_conclusion_pub = create_publisher<ConflictConclusion>(
     rmf_traffic_ros2::NegotiationConclusionTopicName, negotiation_qos);
 
-  negotiation_status_pub = create_publisher<NegotiationStatusMsg>(
-    rmf_traffic_ros2::NegotiationStatusTopicName, negotiation_qos);
-
   conflict_check_quit = false;
   conflict_check_thread = std::thread(
     [&]()
@@ -702,10 +699,6 @@ void ScheduleNode::receive_proposal(const ConflictProposal& msg)
   rmf_traffic_ros2::schedule::print_negotiation_status(msg.conflict_version,
     negotiation);
 
-  auto&& status_msg = rmf_traffic_ros2::schedule::assemble_negotiation_status_msg(
-    msg.conflict_version, negotiation);
-  negotiation_status_pub->publish(status_msg);
-
   if (negotiation.ready())
   {
     // TODO(MXG): If the negotiation is not complete yet, give some time for
@@ -791,11 +784,6 @@ void ScheduleNode::receive_rejection(const ConflictRejection& msg)
   // TODO(MXG): This should be removed once we have a negotiation visualizer
   rmf_traffic_ros2::schedule::print_negotiation_status(msg.conflict_version,
     negotiation);
-
-  auto&& status_msg = rmf_traffic_ros2::schedule::assemble_negotiation_status_msg(
-    msg.conflict_version, negotiation);
-  negotiation_status_pub->publish(status_msg);  
-
 }
 
 //==============================================================================
@@ -835,10 +823,6 @@ void ScheduleNode::receive_forfeit(const ConflictForfeit& msg)
   rmf_traffic_ros2::schedule::print_negotiation_status(msg.conflict_version,
     negotiation);
 
-  auto&& status_msg = rmf_traffic_ros2::schedule::assemble_negotiation_status_msg(
-    msg.conflict_version, negotiation);
-  negotiation_status_pub->publish(status_msg);  
-  
   if (negotiation.complete())
   {
     std::string output = "Forfeited negotiation ["
