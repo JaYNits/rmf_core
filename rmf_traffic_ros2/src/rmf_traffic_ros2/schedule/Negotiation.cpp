@@ -229,6 +229,9 @@ public:
     NegotiationRoom room;
   };
 
+  using NegotiationStatus = rmf_traffic_msgs::msg::NegotiationStatus;
+  rclcpp::Publisher<NegotiationStatus>::SharedPtr status_pub;
+
   using NegotiationMap = std::unordered_map<Version, Entry>;
 
   // The negotiations that this Negotiation class is involved in
@@ -321,10 +324,16 @@ public:
 
     ack_pub = node.create_publisher<Ack>(
       NegotiationAckTopicName, qos);
+
+    status_pub = node.create_publisher<NegotiationStatus>(
+      NegotiationStatusTopicName, qos
+    );
   }
 
   void receive_repeat_request(const Repeat& msg)
   {
+    RCLCPP_INFO(node.get_logger(), "RECV repeat!");
+    std::cout << "recv repeat!\n";
     // Ignore if it's asking for a repeat of the conflict notice
     if (msg.table.empty())
       return;
@@ -412,6 +421,9 @@ public:
 
   void receive_notice(const Notice& msg)
   {
+    RCLCPP_WARN(node.get_logger(), "RECV NOTICE!");
+    RCLCPP_WARN(node.get_logger(), "RECV NOTICE!");
+
     bool relevant = false;
     for (const auto p : msg.participants)
     {
@@ -484,6 +496,10 @@ public:
 
   void receive_proposal(const Proposal& msg)
   {
+    RCLCPP_WARN(node.get_logger(), "RECV PROPOSAL!");
+    RCLCPP_WARN(node.get_logger(), "RECV PROPOSAL!");
+    RCLCPP_WARN(node.get_logger(), "RECV PROPOSAL!");
+    
     const auto negotiate_it = negotiations.find(msg.conflict_version);
     if (negotiate_it == negotiations.end())
     {
@@ -526,6 +542,9 @@ public:
     if (!updated)
       return;
 
+    auto&& status_msg = assemble_negotiation_status_msg(msg.conflict_version, negotiation);
+    status_pub->publish(status_msg);
+    
     std::vector<TablePtr> queue = room.check_cache(*negotiators);
 
     if (!participating)
@@ -542,6 +561,8 @@ public:
 
   void receive_rejection(const Rejection& msg)
   {
+    RCLCPP_INFO(node.get_logger(), "RECV reject!");
+    std::cout << "recv reject!\n";
     const auto negotiate_it = negotiations.find(msg.conflict_version);
     if (negotiate_it == negotiations.end())
     {
@@ -582,6 +603,9 @@ public:
     if (!updated)
       return;
 
+    auto&& status_msg = assemble_negotiation_status_msg(msg.conflict_version, negotiation);
+    status_pub->publish(status_msg);
+
     std::vector<TablePtr> queue = room.check_cache(*negotiators);
 
     if (!negotiate_it->second.participating)
@@ -616,6 +640,9 @@ public:
     }
 
     table->forfeit(msg.table.back().version);
+
+    auto&& status_msg = assemble_negotiation_status_msg(msg.conflict_version, negotiation);
+    status_pub->publish(status_msg);
 
     respond_to_queue(room.check_cache(*negotiators), msg.conflict_version);
   }
@@ -817,6 +844,9 @@ public:
       if (approval_callback_it != approvals.end())
         approvals.erase(approval_callback_it);
     }
+
+    auto&& status_msg = assemble_negotiation_status_msg(msg.conflict_version, negotiation);
+    status_pub->publish(status_msg);
 
     // Erase these entries because the negotiation has concluded
     negotiations.erase(negotiate_it);
